@@ -55,7 +55,6 @@ var rows = int(float64(t.Row) * 0.5)
 
 func main() {
 
-	fmt.Println(rows, cols)
 	// -----------------------------------------------------
 	// This command works
 	// img := exec.Command("bash", "-c", "kitten icat --transfer-mode=memory --stdin=no /home/sweet/Pictures/anime-icons/coffee.jpg > /dev/pts/0")
@@ -84,7 +83,6 @@ func main() {
 			return a[i]
 		},
 		fzf.WithPromptString(">"),
-		// fzf.WithPreviewWindow()
 		fzf.WithPreviewWindow(func(i, w, h int) string {
 			if i == -1 {
 				return ""

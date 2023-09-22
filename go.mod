@@ -1,4 +1,4 @@
-module fzf-test
+module fzfimg
 
 go 1.21.1
 
