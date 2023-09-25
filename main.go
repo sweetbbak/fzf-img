@@ -75,7 +75,6 @@ func main() {
 	for s.Scan() {
 		a = append(a, s.Text())
 	}
-	fmt.Println()
 
 	idx, err := fzf.Find(
 		a,
@@ -92,6 +91,10 @@ func main() {
 			return ""
 		}),
 	)
+	if err == fzf.ErrAbort {
+		os.Exit(0)
+	}
+
 	if err != nil {
 		fmt.Println(err)
 	}
