@@ -3,8 +3,10 @@ package main
 import (
 	"bufio"
 	"fmt"
+	"io/fs"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"syscall"
 
@@ -18,7 +20,6 @@ func show_image(img string) {
 	cc := "bash"
 	dash_c := "-c"
 	stwing := fmt.Sprintf("--place=%vx%v@%vx0", cols, cols, cols)
-	// kit := strings.Join([]string{"kitten icat --transfer-mode=memory --place=30x30@50x0 --stdin=no", img}, " ")
 	kit := strings.Join([]string{"kitten icat --transfer-mode=memory --stdin=no", stwing, img}, " ")
 	im := exec.Command(cc, dash_c, kit)
 	stdout, err := im.Output()
@@ -84,30 +85,59 @@ func System(cmd string) int {
 	return -1
 }
 
+func is_stdin_open() bool {
+	stat, _ := os.Stdin.Stat()
+	if (stat.Mode() & os.ModeCharDevice) == 0 {
+		// fmt.Println("data is being piped to stdin")
+		return true
+	} else {
+		// fmt.Println("stdin is from a terminal")
+		return false
+	}
+}
+func find_images(root string) []string {
+	// array := make(map[string][]string)
+	// use this because idk what that make map shit was lol
+	var array []string
+	filepath.WalkDir(root, func(path string, file fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if !file.IsDir() {
+			ext := filepath.Ext(path)
+			// match file extension
+			switch ext {
+			case ".jpg":
+				array = append(array, path)
+			case ".png":
+				array = append(array, path)
+			case ".webp":
+				array = append(array, path)
+			case ".gif":
+				array = append(array, path)
+			}
+		}
+		return nil
+	})
+	// return nil
+	return array
+}
+
 var t = get_size()
 var cols = int(float64(t.Col) * 0.5)
 var rows = int(float64(t.Row) * 0.5)
 
 func main() {
-	// -----------------------------------------------------
-	// This command works
-	// img := exec.Command("bash", "-c", "kitten icat --transfer-mode=memory --stdin=no /home/sweet/Pictures/anime-icons/coffee.jpg > /dev/pts/0")
-	// stdout, err := img.Output()
-	// if err != nil {
-	// 	fmt.Println("err: ", err)
-	// }
-
-	// pts, err := os.Open("/dev/tty")
-	// if err != nil {
-	// 	fmt.Println(err)
-	// }
-	// io.WriteString(pts, string(stdout))
-	// -----------------------------------------------------
-
 	a := []string{}
-	s := bufio.NewScanner(os.Stdin)
-	for s.Scan() {
-		a = append(a, s.Text())
+	if is_stdin_open() == true {
+		// fmt.Println("STDIN OPEN")
+		s := bufio.NewScanner(os.Stdin)
+		for s.Scan() {
+			a = append(a, s.Text())
+		}
+	} else {
+		// fmt.Println("STDIN IS NOT OPEN")
+		a = find_images(os.Getenv("HOME"))
 	}
 
 	idx, err := fzf.Find(
@@ -123,9 +153,8 @@ func main() {
 
 			// go show_image(a[i])
 			stwing := fmt.Sprintf("--place=%vx%v@%vx0", cols, cols, cols)
-			kit := strings.Join([]string{"kitten icat --transfer-mode=memory --stdin=no", stwing, a[i]}, " ")
+			kit := strings.Join([]string{"kitten icat --transfer-mode=memory --clear --stdin=no", stwing, a[i]}, " ")
 			go System(kit)
-			// go imagex(a[i])
 			return ""
 		}),
 	)
