@@ -6,6 +6,7 @@ import (
 	"io/fs"
 	"os"
 	"os/exec"
+	"os/signal"
 	"path/filepath"
 	"strings"
 	"syscall"
@@ -14,7 +15,7 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-func show_image(img string) {
+func show_image(img string, cols int) {
 	fmt.Printf(img)
 
 	cc := "bash"
@@ -95,6 +96,7 @@ func is_stdin_open() bool {
 		return false
 	}
 }
+
 func find_images(root string) []string {
 	// array := make(map[string][]string)
 	// use this because idk what that make map shit was lol
@@ -123,6 +125,55 @@ func find_images(root string) []string {
 	return array
 }
 
+func winch(c chan os.Signal) {
+	for {
+		s := <-c
+		if s == syscall.SIGWINCH {
+			fmt.Println("Got signal winch")
+			t = get_size()
+			cols = int(float64(t.Col) * 0.5)
+			rows = int(float64(t.Row) * 0.5)
+			break
+		}
+	}
+	t = get_size()
+	cols = int(float64(t.Col) * 0.5)
+	rows = int(float64(t.Row) * 0.5)
+	signal.Notify(c, syscall.SIGWINCH)
+}
+
+func set_vars(c chan Termsize) (int, int) {
+	var cols = int(float64(t.Col) * 0.5)
+	var rows = int(float64(t.Row) * 0.5)
+	return cols, rows
+}
+
+func monitor_term(ch chan os.Signal) int {
+	for {
+		<-ch // Wait for the SIGWINCH signal
+		t := get_size()
+		cols = int(float64(t.Col) * 0.5)
+		rows = int(float64(t.Row) * 0.5)
+		return cols
+	}
+}
+
+func logit(text string) {
+	filename := "terminal.log"
+	f, err := os.OpenFile(filename, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0600)
+	if err != nil {
+		panic(err)
+	}
+
+	defer f.Close()
+
+	text = fmt.Sprintf("[%s]\n", text)
+	if _, err = f.WriteString(text); err != nil {
+		panic(err)
+	}
+}
+
+// get terminal size to guess image size
 var t = get_size()
 var cols = int(float64(t.Col) * 0.5)
 var rows = int(float64(t.Row) * 0.5)
@@ -140,6 +191,31 @@ func main() {
 		a = find_images(os.Getenv("HOME"))
 	}
 
+	// -----------------------------------
+	t = get_size()
+	ch := make(chan os.Signal, 1)
+	signal.Notify(ch, syscall.SIGWINCH)
+
+	go monitor_term(ch)
+
+	// go func() {
+	// 	for {
+	// 		s := <-ch
+	// 		if s == syscall.SIGWINCH {
+	// 			os.WriteFile("winch.log", []byte(s.String()), 0644)
+	// 			fmt.Println("Got signal winch")
+	// 			t = get_size()
+	// 			co <- get_size()
+	// 			set_vars(co)
+	// 			cols = int(float64(t.Col) * 0.5)
+	// 			rows = int(float64(t.Row) * 0.5)
+	// 		}
+	// 	}
+	// 	close(done)
+	// }()
+
+	// -----------------------------------
+
 	idx, err := fzf.Find(
 		a,
 		func(i int) string {
@@ -152,6 +228,9 @@ func main() {
 			}
 
 			// go show_image(a[i])
+			t = get_size()
+			cols = int(float64(t.Col) * 0.5)
+
 			stwing := fmt.Sprintf("--place=%vx%v@%vx0", cols, cols, cols)
 			kit := strings.Join([]string{"kitten icat --transfer-mode=memory --clear --stdin=no", stwing, a[i]}, " ")
 			go System(kit)
